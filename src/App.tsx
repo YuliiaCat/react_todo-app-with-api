@@ -16,7 +16,6 @@ import { Todo } from './types/Todo';
 import { Errors } from './components/Errors/Errors';
 import { TodoStatus } from './types/TodoStatus';
 import { Error } from './types/Error';
-import { getVisibleTodos } from './utils/getVisibleTodos';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -95,25 +94,36 @@ export const App: React.FC = () => {
       });
   };
 
-  const handeUpdateTodo = (updatedTodo: Todo) => {
+  const handleUpdateTodo = (updatedTodo: Todo) => {
     setLoadingTodos(current => [...current, updatedTodo.id]);
-    updateTodo(updatedTodo)
-      .then(todo => {
-        setTodos(currentTodos => {
-          const newTodos = [...currentTodos];
-          const index = newTodos.findIndex(t => t.id === updatedTodo.id);
 
+    setTodos(currentTodos => {
+      const newTodos = [...currentTodos];
+      const index = newTodos.findIndex(t => t.id === updatedTodo.id);
+
+      if (newTodos[index].title === updatedTodo.title) {
+        setLoadingTodos(current =>
+          current.filter(todoId => todoId !== updatedTodo.id),
+        );
+
+        return currentTodos;
+      }
+
+      updateTodo(updatedTodo)
+        .then(todo => {
           newTodos.splice(index, 1, todo);
 
           return newTodos;
-        });
-      })
-      .catch(() => setError(Error.UnableUpdateTodo))
-      .finally(() =>
-        setLoadingTodos(current =>
-          current.filter(todoId => todoId !== updatedTodo.id),
-        ),
-      );
+        })
+        .catch(() => setError(Error.UnableUpdateTodo))
+        .finally(() =>
+          setLoadingTodos(current =>
+            current.filter(todoId => todoId !== updatedTodo.id),
+          ),
+        );
+
+      return newTodos;
+    });
   };
 
   const handleDeleteTodo = (todoId: number) => {
@@ -133,17 +143,29 @@ export const App: React.FC = () => {
       });
   };
 
-  const completedTodos = getVisibleTodos(todos, status);
-
   const deleteAllCompleted = () => {
-    const completedTodoIds = completedTodos.map(todo => todo.id);
-
-    const requests: Promise<unknown>[] = [];
-
-    completedTodoIds.forEach(todoId => requests.push(deleteTodo(todoId)));
+    const completedTodoIds = todos
+      .filter(todo => todo.completed)
+      .map(todo => todo.id);
 
     setLoadingTodos(current => [...current, ...completedTodoIds]);
-    completedTodos.forEach(todo => handleDeleteTodo(todo.id));
+
+    const requests = completedTodoIds.map(todoId => deleteTodo(todoId));
+
+    Promise.all(requests)
+      .then(() => {
+        setTodos(currentTodos =>
+          currentTodos.filter(todo => !completedTodoIds.includes(todo.id)),
+        );
+      })
+      .catch(() => setError(Error.UnableDeleteTodo))
+      .finally(() => {
+        setLoadingTodos(current =>
+          current.filter(
+            loadingTodoId => !completedTodoIds.includes(loadingTodoId),
+          ),
+        );
+      });
   };
 
   if (!USER_ID) {
@@ -170,7 +192,7 @@ export const App: React.FC = () => {
           tempTodo={tempTodo}
           status={status}
           onDelete={handleDeleteTodo}
-          onUpdate={handeUpdateTodo}
+          onUpdate={handleUpdateTodo}
           loadingTodos={loadingTodos}
         />
 

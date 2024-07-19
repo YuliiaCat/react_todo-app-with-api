@@ -5,10 +5,10 @@ import classNames from 'classnames';
 
 type Props = {
   todo: Todo;
-  onDelete: () => void;
+  onDelete?: () => void;
   isLoading: boolean;
-  onToggle: () => void;
-  onUpdate: (newTitle: string) => void;
+  onToggle?: () => void;
+  onUpdate?: (newTitle: string) => void;
 };
 
 export const TodoItem: React.FC<Props> = ({
@@ -31,9 +31,10 @@ export const TodoItem: React.FC<Props> = ({
     const trimmedValue = value.trim();
 
     if (trimmedValue) {
-      onUpdate(trimmedValue);
+      onUpdate?.(trimmedValue);
+      setIsEditing(false);
     } else {
-      onDelete();
+      onDelete?.();
       setIsEditing(true);
     }
 
