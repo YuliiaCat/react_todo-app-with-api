@@ -97,33 +97,18 @@ export const App: React.FC = () => {
   const handleUpdateTodo = (updatedTodo: Todo) => {
     setLoadingTodos(current => [...current, updatedTodo.id]);
 
-    setTodos(currentTodos => {
-      const newTodos = [...currentTodos];
-      const index = newTodos.findIndex(t => t.id === updatedTodo.id);
-
-      if (newTodos[index].title === updatedTodo.title) {
+    updateTodo(updatedTodo)
+      .then(todo => {
+        setTodos(currentTodos =>
+          currentTodos.map(t => (t.id === updatedTodo.id ? todo : t)),
+        );
+      })
+      .catch(() => setError(Error.UnableUpdateTodo))
+      .finally(() =>
         setLoadingTodos(current =>
           current.filter(todoId => todoId !== updatedTodo.id),
-        );
-
-        return currentTodos;
-      }
-
-      updateTodo(updatedTodo)
-        .then(todo => {
-          newTodos.splice(index, 1, todo);
-
-          return newTodos;
-        })
-        .catch(() => setError(Error.UnableUpdateTodo))
-        .finally(() =>
-          setLoadingTodos(current =>
-            current.filter(todoId => todoId !== updatedTodo.id),
-          ),
-        );
-
-      return newTodos;
-    });
+        ),
+      );
   };
 
   const handleDeleteTodo = (todoId: number) => {
@@ -144,28 +129,25 @@ export const App: React.FC = () => {
   };
 
   const deleteAllCompleted = () => {
-    const completedTodoIds = todos
-      .filter(todo => todo.completed)
-      .map(todo => todo.id);
+    const completedTodos = todos.filter(todo => todo.completed);
+    const completedTodoIds = completedTodos.map(todo => todo.id);
 
     setLoadingTodos(current => [...current, ...completedTodoIds]);
 
-    const requests = completedTodoIds.map(todoId => deleteTodo(todoId));
-
-    Promise.all(requests)
-      .then(() => {
-        setTodos(currentTodos =>
-          currentTodos.filter(todo => !completedTodoIds.includes(todo.id)),
-        );
-      })
-      .catch(() => setError(Error.UnableDeleteTodo))
-      .finally(() => {
-        setLoadingTodos(current =>
-          current.filter(
-            loadingTodoId => !completedTodoIds.includes(loadingTodoId),
-          ),
-        );
-      });
+    completedTodos.forEach(todo => {
+      deleteTodo(todo.id)
+        .then(() => {
+          setTodos(currentTodos =>
+            currentTodos.filter(currentTodo => currentTodo.id !== todo.id),
+          );
+        })
+        .catch(() => setError(Error.UnableDeleteTodo))
+        .finally(() => {
+          setLoadingTodos(current =>
+            current.filter(loadingTodoId => loadingTodoId !== todo.id),
+          );
+        });
+    });
   };
 
   if (!USER_ID) {
